@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Manage Participants{% endblock %}
+
+{% block content %}
+<div class="max-w-8xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Manage Participants</h2>
+            <button onclick="showAddParticipantForm()" 
+                    class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                Add Participant
+            </button>
+        </div>
+
+        <!-- Participants List -->
+        <div id="participantsList" class="space-y-4">
+            <!-- Participants will be listed here -->
+        </div>
+
+        <!-- Add/Edit Form (hidden by default) -->
+        <div id="participantForm" class="hidden mt-6 p-4 border rounded-lg bg-gray-50">
+            <h3 class="font-medium mb-4">Participant Details</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Name *</label>
+                    <input type="text" id="nameInput" class="w-full border rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="emailInput" class="w-full border rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Phone</label>
+                    <input type="tel" id="phoneInput" class="w-full border rounded p-2">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveParticipant()" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                        Save
+                    </button>
+                    <button onclick="closeParticipantForm()" 
+                            class="border px-4 py-2 rounded-md hover:bg-gray-50">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let participants = [];
+let selectedParticipant = null;
+
+// Fetch all participants
+async function fetchParticipants() {
+    try {
+        const response = await fetch('/api/participants');
+        if (!response.ok) throw new Error('Failed to fetch participants');
+        participants = await response.json();
+        renderParticipants();
+    } catch (error) {
+        showMessage(error.message, 'error');
+    }
+}
+
+// Render participants list
+function renderParticipants() {
+    const container = document.getElementById('participantsList');
+    container.innerHTML = '';
+
+    participants.forEach(participant => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50';
+        div.innerHTML = `
+            <div class="flex-1">
+                <h3 class="font-medium">${participant.name}</h3>
+                <div class="text-sm text-gray-500">
+                    ${participant.email ? `<div>📧 ${participant.email}</div>` : ''}
+                    ${participant.phone ? `<div>📱 ${participant.phone}</div>` : ''}
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="editParticipant(${participant.id})" 
+                        class="text-blue-500 hover:text-blue-700">
+                    Edit
+                </button>
+                <button onclick="deleteParticipant(${participant.id})" 
+                        class="text-red-500 hover:text-red-700">
+                    Delete
+                </button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// Show add/edit form
+function showAddParticipantForm() {
+    selectedParticipant = null;
+    document.getElementById('nameInput').value = '';
+    document.getElementById('emailInput').value = '';
+    document.getElementById('phoneInput').value = '';
+    document.getElementById('participantForm').classList.remove('hidden');
+}
+
+// Edit participant
+function editParticipant(id) {
+    selectedParticipant = participants.find(p => p.id === id);
+    if (selectedParticipant) {
+        document.getElementById('nameInput').value = selectedParticipant.name;
+        document.getElementById('emailInput').value = selectedParticipant.email || '';
+        document.getElementById('phoneInput').value = selectedParticipant.phone || '';
+        document.getElementById('participantForm').classList.remove('hidden');
+    }
+}
+
+// Save participant
+async function saveParticipant() {
+    // Validate inputs
+    const name = document.getElementById('nameInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim();
+    const phone = document.getElementById('phoneInput').value.trim();
+
+    // Validation rules
+    if (!name) {
+        showMessage('Name is required', 'error');
+        return;
+    }
+    if (email && !isValidEmail(email)) {
+        showMessage('Invalid email format', 'error');
+        return;
+    }
+    if (phone && !isValidPhone(phone)) {
+        showMessage('Invalid phone format', 'error');
+        return;
+    }
+
+    const participantData = {
+        name,
+        email: email || null,
+        phone: phone || null
+    };
+
+    try {
+        const url = selectedParticipant 
+            ? `/api/participants/${selectedParticipant.id}`
+            : '/api/participants';
+        const method = selectedParticipant ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(participantData)
+        });
+
+        if (!response.ok) throw new Error('Failed to save participant');
+
+        await fetchParticipants();
+        closeParticipantForm();
+        showMessage('Participant saved successfully', 'success');
+    } catch (error) {
+        showMessage(error.message, 'error');
+    }
+}
+
+// Delete participant
+async function deleteParticipant(id) {
+    if (!confirm('Are you sure you want to delete this participant?')) return;
+
+    try {
+        const response = await fetch(`/api/participants/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete participant');
+
+        await fetchParticipants();
+        showMessage('Participant deleted successfully', 'success');
+    } catch (error) {
+        showMessage(error.message, 'error');
+    }
+}
+
+// Validation helpers
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidPhone(phone) {
+    return /^[\d\s\-\+\(\)]{10,}$/.test(phone);
+}
+
+// Close form
+function closeParticipantForm() {
+    selectedParticipant = null;
+    document.getElementById('participantForm').classList.add('hidden');
+}
+
+// Show message
+function showMessage(message, type) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `fixed top-4 right-4 p-4 rounded-md ${
+        type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+    }`;
+    messageDiv.textContent = message;
+    document.body.appendChild(messageDiv);
+    setTimeout(() => messageDiv.remove(), 3000);
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', fetchParticipants);
+</script>
+{% endblock %}

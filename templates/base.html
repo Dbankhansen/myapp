@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} - My App</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Add Alpine.js for handling mobile menu -->
+    <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg" x-data="{ isOpen: false }">
+        <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="{{ url_for('dashboard') }}" class="text-xl font-bold text-gray-800">My App</a>
+                    </div>
+                    
+                    <!-- Navigation Links -->
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        {% if 'user_id' in session %}
+                            <a href="{{ url_for('dashboard') }}"
+                               class="{% if request.endpoint == 'dashboard' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500{% endif %} 
+                                      inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Dashboard
+                            </a>
+                            <a href="{{ url_for('visual_planner') }}"
+                               class="{% if request.endpoint == 'visual_planner' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500{% endif %}
+                                      inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Visual Planner
+                            </a>
+                            <a href="{{ url_for('manage_participants') }}"
+                               class="{% if request.endpoint == 'manage_participants' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500{% endif %}
+                                      inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Participants
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- User Menu -->
+                <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                    {% if 'user_id' in session %}
+                        <div class="ml-3 relative">
+                            <div class="flex items-center space-x-4">
+                                <span class="text-gray-700">{{ session.username }}</span>
+                                <a href="{{ url_for('logout') }}"
+                                   class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
+                                    Logout
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Mobile menu button -->
+                <div class="-mr-2 flex items-center sm:hidden">
+                    <button @click="isOpen = !isOpen"
+                            class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path :class="{'hidden': isOpen, 'inline-flex': !isOpen }" stroke-linecap="round"
+                                  stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            <path :class="{'hidden': !isOpen, 'inline-flex': isOpen }" stroke-linecap="round"
+                                  stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile menu -->
+        <div :class="{'block': isOpen, 'hidden': !isOpen}" class="sm:hidden">
+            <div class="pt-2 pb-3 space-y-1">
+                {% if 'user_id' in session %}
+                    <a href="{{ url_for('dashboard') }}"
+                       class="{% if request.endpoint == 'dashboard' %}bg-blue-50 border-blue-500 text-blue-700{% else %}border-transparent text-gray-500{% endif %}
+                              block pl-3 pr-4 py-2 border-l-4 text-base font-medium">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('visual_planner') }}"
+                       class="{% if request.endpoint == 'visual_planner' %}bg-blue-50 border-blue-500 text-blue-700{% else %}border-transparent text-gray-500{% endif %}
+                              block pl-3 pr-4 py-2 border-l-4 text-base font-medium">
+                        Visual Planner
+                    </a>
+                    <a href="{{ url_for('manage_participants') }}"
+                       class="{% if request.endpoint == 'manage_participants' %}bg-blue-50 border-blue-500 text-blue-700{% else %}border-transparent text-gray-500{% endif %}
+                              block pl-3 pr-4 py-2 border-l-4 text-base font-medium">
+                        Participants
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="container max-w-8xl mx-auto px-4 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-4 rounded-md {{ 'bg-green-100 text-green-700' if category == 'success' else 'bg-red-100 text-red-700' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

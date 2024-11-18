@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Visual Planner{% endblock %}
+
+{% block content %}
+<div class="max-w-8xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Daily Schedule - <span id="currentDate"></span></h2>
+                <button onclick="addActivity()" 
+                        class="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" 
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Quick Icons Bar -->
+            <div class="flex gap-2 mb-6 p-2 bg-gray-50 rounded-lg overflow-x-auto">
+                <button onclick="setActivityIcon('🍳')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🍳</button>
+                <button onclick="setActivityIcon('📚')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">📚</button>
+                <button onclick="setActivityIcon('⚽')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">⚽</button>
+                <button onclick="setActivityIcon('🎨')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🎨</button>
+                <button onclick="setActivityIcon('🎵')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🎵</button>
+                <button onclick="setActivityIcon('🏊‍♂️')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🏊‍♂️</button>
+                <button onclick="setActivityIcon('🚗')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🚗</button>
+                <button onclick="setActivityIcon('🛏️')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🛏️</button>
+                <button onclick="setActivityIcon('🧹')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">🧹</button>
+                <button onclick="setActivityIcon('👥')" class="text-2xl p-2 hover:bg-gray-200 rounded-lg">👥</button>
+            </div>
+
+            <!-- Activities Timeline -->
+            <div id="activitiesList" class="space-y-4">
+                <!-- Activities will be inserted here -->
+            </div>
+
+            <!-- Activity Details Panel -->
+            <div id="activityDetails" class="hidden mt-6 p-4 border rounded-lg bg-gray-50">
+                <h3 class="font-medium mb-4">Activity Details</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Title</label>
+                        <input type="text" id="titleInput" 
+                               class="w-full border rounded p-2"
+                               placeholder="Enter title">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Time</label>
+                        <input type="time" id="timeInput" 
+                               class="w-full border rounded p-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Icon</label>
+                        <input type="text" id="iconInput" 
+                               class="w-full border rounded p-2"
+                               readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Location</label>
+                        <input type="text" id="locationInput" 
+                               class="w-full border rounded p-2"
+                               placeholder="Enter location">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Participants</label>
+                        <select id="participantsInput" 
+                                multiple
+                                class="w-full border rounded p-2 h-32">
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                        <p class="text-sm text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveActivityDetails()" 
+                                class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                            Save
+                        </button>
+                        <button onclick="closeActivityDetails()" 
+                                class="px-4 py-2 border rounded-md hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let activities = [
+    { id: 1, time: '08:00', title: 'Breakfast', icon: '🍳', participants: ['Mom', 'Dad', 'Kids'], location: 'Kitchen' },
+    { id: 2, time: '09:00', title: 'School', icon: '📚', participants: ['Kids'], location: 'School' },
+    { id: 3, time: '15:00', title: 'Soccer Practice', icon: '⚽', participants: ['Kids'], location: 'Sports Field' }
+];
+let selectedActivity = null;
+let currentIcon = '📝';
+
+async function fetchActivities() {
+    try {
+        const response = await fetch('/api/activities');
+        if (!response.ok) throw new Error('Failed to fetch activities');
+        activities = await response.json();
+        renderActivities();
+    } catch (error) {
+        showMessage('Error loading activities', 'error');
+    }
+}
+
+async function addActivity() {
+    const newActivity = {
+        id: Date.now(),
+        time: '12:00',
+        title: 'New Activity',
+        icon: currentIcon,
+        participants: [],
+        location: '',
+        date: new Date().toISOString().split('T')[0]
+    };
+    
+    try {
+        const response = await fetch('/api/activities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newActivity)
+        });
+        
+        if (!response.ok) throw new Error('Failed to create activity');
+        
+        const result = await response.json();
+        newActivity.id = result.id;
+        activities.push(newActivity);
+        selectActivity(newActivity);
+        renderActivities();
+        showMessage('Activity created successfully', 'success');
+    } catch (error) {
+        showMessage('Error creating activity', 'error');
+    }
+}
+
+async function saveActivityDetails() {
+    if (!selectedActivity) return;
+    
+    const title = document.getElementById('titleInput').value.trim();
+    const time = document.getElementById('timeInput').value;
+    
+    if (!title) {
+        showMessage('Title is required', 'error');
+        return;
+    }
+    if (!time) {
+        showMessage('Time is required', 'error');
+        return;
+    }
+    
+    const select = document.getElementById('participantsInput');
+    const selectedParticipantIds = Array.from(select.selectedOptions).map(option => option.value);
+    
+    const updatedActivity = {
+        title: title,
+        time: time,
+        icon: document.getElementById('iconInput').value || '📝',
+        location: document.getElementById('locationInput').value || '',
+        participants: selectedParticipantIds,
+        date: new Date().toISOString().split('T')[0]
+    };
+    
+    try {
+        const response = await fetch(`/api/activities/${selectedActivity.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updatedActivity)
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update activity');
+        }
+        
+        // Update local state
+        Object.assign(selectedActivity, updatedActivity);
+        renderActivities();
+        showMessage('Activity updated successfully', 'success');
+    } catch (error) {
+        showMessage(error.message, 'error');
+    }
+}
+
+function setActivityIcon(icon) {
+    currentIcon = icon;
+    if (selectedActivity) {
+        selectedActivity.icon = icon;
+        document.getElementById('iconInput').value = icon;
+        renderActivities();
+    }
+}
+
+function closeActivityDetails() {
+    selectedActivity = null;
+    document.getElementById('activityDetails').classList.add('hidden');
+}
+
+function selectActivity(activity) {
+    selectedActivity = activity;
+    const detailsPanel = document.getElementById('activityDetails');
+    detailsPanel.classList.remove('hidden');
+    
+    document.getElementById('titleInput').value = activity.title || '';
+    document.getElementById('timeInput').value = activity.time || '';
+    document.getElementById('iconInput').value = activity.icon || '📝';
+    document.getElementById('locationInput').value = activity.location || '';
+    
+    const participantsSelect = document.getElementById('participantsInput');
+    const participantIds = Array.isArray(activity.participants) 
+        ? activity.participants 
+        : (activity.participants ? activity.participants.split(',') : []);
+    
+    Array.from(participantsSelect.options).forEach(option => {
+        option.selected = participantIds.includes(option.value);
+    });
+}
+
+async function deleteActivity(id) {
+    try {
+        const response = await fetch(`/api/activities/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete activity');
+        
+        activities = activities.filter(a => a.id !== id);
+        if (selectedActivity?.id === id) {
+            selectedActivity = null;
+            document.getElementById('activityDetails').classList.add('hidden');
+        }
+        renderActivities();
+        showMessage('Activity deleted successfully', 'success');
+    } catch (error) {
+        showMessage('Error deleting activity', 'error');
+    }
+}
+
+function renderActivities() {
+    const container = document.getElementById('activitiesList');
+    container.innerHTML = '';
+    
+    activities.sort((a, b) => (a.time || '').localeCompare(b.time || '')).forEach(activity => {
+        const div = document.createElement('div');
+        div.className = `flex items-center p-4 rounded-lg cursor-pointer transition-colors ${
+            selectedActivity?.id === activity.id ? 'bg-blue-50' : 'hover:bg-gray-50'
+        }`;
+        
+        const participantCount = Array.isArray(activity.participants) 
+            ? activity.participants.length 
+            : (activity.participants ? activity.participants.split(',').length : 0);
+
+        div.innerHTML = `
+            <div class="w-24 font-medium">
+                <input type="time" value="${activity.time || ''}" 
+                       class="border rounded p-1" 
+                       onchange="updateActivity(${activity.id}, 'time', this.value)">
+            </div>
+            <div class="flex-1 flex items-center gap-4">
+                <span class="text-2xl">${activity.icon || '📝'}</span>
+                <input type="text" value="${activity.title || ''}" 
+                       class="flex-1 border rounded p-2"
+                       onchange="updateActivity(${activity.id}, 'title', this.value)">
+            </div>
+            <div class="flex gap-4 items-center text-gray-600">
+                <div class="flex items-center gap-1">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>${activity.time || 'No time'}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>${participantCount}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span>${activity.location || 'No location'}</span>
+                </div>
+                <button onclick="deleteActivity(${activity.id})" class="text-red-500 hover:text-red-700 p-1">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        div.onclick = () => selectActivity(activity);
+        container.appendChild(div);
+    });
+}
+
+function showMessage(message, type) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `fixed top-4 right-4 p-4 rounded-md ${
+        type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+    }`;
+    messageDiv.textContent = message;
+    document.body.appendChild(messageDiv);
+    setTimeout(() => messageDiv.remove(), 3000);
+}
+
+// Add this function to fetch participants
+async function fetchParticipantsList() {
+    try {
+        const response = await fetch('/api/participants');
+        if (!response.ok) throw new Error('Failed to fetch participants');
+        return await response.json();
+    } catch (error) {
+        showMessage('Error loading participants', 'error');
+        return [];
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchActivities();
+    
+    // Populate participants dropdown
+    const participants = await fetchParticipantsList();
+    const select = document.getElementById('participantsInput');
+    participants.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.name;
+        select.appendChild(option);
+    });
+    
+    document.getElementById('currentDate').textContent = new Date().toLocaleDateString();
+});
+</script>
+{% endblock %}
